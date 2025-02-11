@@ -30,7 +30,7 @@ const UserLogin = () => {
 
     return (
         <div className="max-w-md mx-auto mt-12 p-6 bg-white rounded-lg shadow-lg">
-            <h2 className="text-2xl font-bold text-center text-gray-700 mb-6">Market Login</h2>
+            <h2 className="text-2xl font-bold text-center text-gray-700 mb-6">Market Sign In</h2>
             {isError && <p className="mb-4 text-sm text-red-500">Login failed. Please try again.{isError}</p>}
             <form onSubmit={handleSubmit(submitHandler)} className="space-y-6">
                 <div>
