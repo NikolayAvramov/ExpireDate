@@ -9,7 +9,6 @@ import { useEffect } from "react";
 export default function Products() {
   const { fetchMarkets, selectedMarketId, setSelectedMarketId } = useContent();
 
-  // 🔹 Load last selected market from localStorage on component mount
   useEffect(() => {
     const lastSelectedMarket = localStorage.getItem('lastSelectedMarket');
     if (lastSelectedMarket) {
@@ -17,7 +16,7 @@ export default function Products() {
     }
   }, [setSelectedMarketId]);
 
-  // 🔹 Save selected market to localStorage whenever it changes
+
   useEffect(() => {
     if (selectedMarketId) {
       localStorage.setItem('lastSelectedMarket', selectedMarketId);
@@ -34,7 +33,7 @@ export default function Products() {
     queryKey: ["markets"],
   });
 
-  // 🔹 Improved loading state with spinner
+ 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -43,7 +42,7 @@ export default function Products() {
     );
   }
 
-  // 🔹 Improved error state with retry button
+  
   if (isError) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4">

@@ -7,8 +7,8 @@ import { useContent } from "@/context/ContentContext";
 import { useAuth } from "@/context/AuthContect";
 
 export default function CheckoutPage() {
-  const { basket, clearCart, sendOrderEmail } = useContent();
-  const { isAuthenticated } = useAuth();
+  const { basket} = useContent();
+  
   const router = useRouter();
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -24,42 +24,7 @@ export default function CheckoutPage() {
     }, 0);
   };
 
-  const onSubmit = async (data) => {
-    if (!isAuthenticated) {
-      router.push("/login");
-      return;
-    }
-
-    setIsProcessing(true);
-    try {
-      // Prepare order data
-      const orderData = {
-        items: basket.map(item => ({
-          name: item.name,
-          quantity: item.quantity,
-          price: item.salePrice
-        })),
-        totalAmount: calculateTotal(),
-        shippingAddress: {
-          street: data.street || "N/A",
-          city: data.city || "N/A",
-          state: data.state || "N/A",
-          zipCode: data.zipCode || "N/A"
-        }
-      };
-
-      // Send order email
-      await sendOrderEmail(orderData);
-
-      // Clear cart and redirect to success page
-      clearCart();
-      router.push("/checkout/success");
-    } catch (error) {
-      console.error("Payment failed:", error);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
+ 
 
   if (basket.length === 0) {
     return (
@@ -94,7 +59,6 @@ export default function CheckoutPage() {
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {/* Order Summary */}
               <div>
                 <h3 className="text-lg font-medium text-gray-900 mb-4">
                   Order Summary
@@ -128,13 +92,11 @@ export default function CheckoutPage() {
                   </div>
                 </div>
               </div>
-
-              {/* Payment Form */}
               <div>
                 <h3 className="text-lg font-medium text-gray-900 mb-4">
                   Contact Information
                 </h3>
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+                <form className="space-y-4">
                   <div>
                     <label
                       htmlFor="name"
