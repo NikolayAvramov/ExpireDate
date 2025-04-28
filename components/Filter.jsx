@@ -1,115 +1,99 @@
 "use client";
-
 import { useContent } from "@/context/ContentContext";
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 
 const Filter = () => {
-    const {
-        allMarkets,
-        allRegions,
-        selectedRegion,
-        selectedTown,
-        selectedMarket,
-        setSelectedRegion,
-        setSelectedTown,
-        setSelectedMarket,
-    } = useContent();
+  const { allMarkets, allRegions, selectedMarketId, setSelectedMarketId } =
+    useContent();
 
-    const [filteredTowns, setFilteredTowns] = useState([]);
-    const [filteredMarkets, setFilteredMarkets] = useState([]);
+  // 🔹 Default states for Region and Town (empty to make it initially open)
+  const [selectedRegion, setSelectedRegion] = useState("");
+  const [selectedTownValue, setSelectedTownValue] = useState("");
 
-    // When the region changes, filter the towns
-    useEffect(() => {
-        if (selectedRegion) {
-            const townsInRegion = allMarkets.filter(market => market.region === selectedRegion).map(market => market.town);
-            setFilteredTowns([...new Set(townsInRegion)]); // Remove duplicates
-            setSelectedTown(""); // Reset town when region changes
-        }
-    }, [selectedRegion, allMarkets, setSelectedTown]);
+  // 🔹 Reset the filter states to the initial state
+  useEffect(() => {
+    // Reset town and market whenever the region changes
+    setSelectedTownValue(""); // Reset the selected town when the region changes
+    setSelectedMarketId(""); // Reset selected market when town changes
+  }, [selectedRegion, setSelectedMarketId]);
 
-    // When the town changes, filter the markets
-    useEffect(() => {
-        if (selectedTown) {
-            const marketsInTown = allMarkets.filter(market => market.town === selectedTown);
-            setFilteredMarkets(marketsInTown);
-            setSelectedMarket(""); // Reset market when town changes
-        }
-    }, [selectedTown, allMarkets, setSelectedMarket]);
+  // 🔹 Filter towns dynamically based on selected region
+  const filteredTowns = selectedRegion
+    ? [
+        ...new Set(
+          allMarkets
+            .filter((m) => m.region === selectedRegion)
+            .map((m) => m.town)
+        ),
+      ]
+    : [];
 
-    return (
-        <div className="w-full md:w-1/3 lg:w-1/4 bg-white p-6 rounded-lg shadow-lg mb-6 md:mb-0 md:mr-8">
-            <h2 className="text-2xl font-bold mb-6 text-green-600">Filter Options</h2>
+  // 🔹 Filter markets dynamically based on selected town
+  const filteredMarkets = selectedTownValue
+    ? allMarkets.filter((m) => m.town === selectedTownValue)
+    : [];
 
-            <div className="space-y-6 text-black">
-                {/* Region Select */}
-                <div>
-                    <label htmlFor="region" className="block text-base font-medium text-gray-700 mb-1">
-                        Select Region:
-                    </label>
-                    <select
-                        id="region"
-                        value={selectedRegion}
-                        onChange={e => setSelectedRegion(e.target.value)}
-                        className="mt-1 block w-full bg-gray-50 border border-gray-300 rounded-lg shadow-sm focus:ring-green-400 focus:border-green-400 text-sm p-2"
-                    >
-                        <option value="">-- Select Region --</option>
-                        {allRegions &&
-                            allRegions.map(region => (
-                                <option key={region} value={region}>
-                                    {region}
-                                </option>
-                            ))}
-                    </select>
-                </div>
+  return (
+    <div className="w-24 md:w-1/3 lg:w-1/4 bg-white p-6 rounded-lg shadow-lg mb-6 md:mb-0 ">
+      <h2 className="text-2xl font-bold mb-6 text-green-600">Filter Options</h2>
 
-                {/* Town Select */}
-                {selectedRegion && (
-                    <div>
-                        <label htmlFor="town" className="block text-base font-medium text-gray-700 mb-1">
-                            Select Town:
-                        </label>
-                        <select
-                            id="town"
-                            value={selectedTown}
-                            onChange={e => setSelectedTown(e.target.value)}
-                            className="mt-1 block w-full bg-gray-50 border border-gray-300 rounded-lg shadow-sm focus:ring-green-400 focus:border-green-400 text-sm p-2"
-                        >
-                            <option value="">-- Select Town --</option>
-                            {filteredTowns &&
-                                filteredTowns.map(town => (
-                                    <option key={town} value={town}>
-                                        {town}
-                                    </option>
-                                ))}
-                        </select>
-                    </div>
-                )}
+      <div className="space-y-6 text-black">
+        {/* Region Select */}
+        <select
+          id="region"
+          value={selectedRegion}
+          onChange={(e) => setSelectedRegion(e.target.value)}
+          className="mt-1 block w-full bg-gray-50 border border-gray-300 rounded-lg shadow-sm focus:ring-green-400 focus:border-green-400 text-sm p-2"
+        >
+          <option value="">-- Select Region --</option>
+          {allRegions &&
+            allRegions.map((region, index) => (
+              <option key={region + index} value={region}>
+                {region}
+              </option>
+            ))}
+        </select>
 
-                {/* Market Select */}
-                {selectedTown && (
-                    <div>
-                        <label htmlFor="market" className="block text-base font-medium text-gray-700 mb-1">
-                            Select Market:
-                        </label>
-                        <select
-                            id="market"
-                            value={selectedMarket}
-                            onChange={e => setSelectedMarket(e.target.value)}
-                            className="mt-1 block w-full bg-gray-50 border border-gray-300 rounded-lg shadow-sm focus:ring-green-400 focus:border-green-400 text-sm p-2"
-                        >
-                            <option value="">-- Select Market --</option>
-                            {filteredMarkets &&
-                                filteredMarkets.map(market => (
-                                    <option key={market.objectId} value={market.objectId}>
-                                        {market.name}
-                                    </option>
-                                ))}
-                        </select>
-                    </div>
-                )}
-            </div>
-        </div>
-    );
+        {/* Town Select */}
+        {selectedRegion && (
+          <select
+            id="town"
+            value={selectedTownValue}
+            onChange={(e) => {
+              setSelectedTownValue(e.target.value);
+              // setSelectedTown(e.target.value); // Update context when town is selected
+            }}
+            className="mt-1 block w-full bg-gray-50 border border-gray-300 rounded-lg shadow-sm focus:ring-green-400 focus:border-green-400 text-sm p-2"
+          >
+            <option value="">-- Select Town --</option>
+            {filteredTowns &&
+              filteredTowns.map((town, index) => (
+                <option key={town + index} value={town}>
+                  {town}
+                </option>
+              ))}
+          </select>
+        )}
+
+        {/* Market Select */}
+        {selectedTownValue && (
+          <select
+            id="market"
+            value={selectedMarketId || ""}
+            onChange={(e) => setSelectedMarketId(e.target.value)}
+            className="mt-1 block w-full bg-gray-50 border border-gray-300 rounded-lg shadow-sm focus:ring-green-400 focus:border-green-400 text-sm p-2"
+          >
+            <option value="">-- Select Market --</option>
+            {filteredMarkets.map((market) => (
+              <option key={market.id} value={market.id}>
+                {market.marketName} {market.address}
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
+    </div>
+  );
 };
 
 export default Filter;
