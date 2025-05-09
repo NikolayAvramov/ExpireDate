@@ -11,7 +11,7 @@ export default function Hero() {
     const ctaRef = useRef(null);
     const secondaryCtaRef = useRef(null);
     const floatingElementRef = useRef(null);
-
+  
     useGSAP(() => {
         // Background gradient animation
         gsap.to(heroRef.current, {

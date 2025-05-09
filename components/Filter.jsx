@@ -10,7 +10,7 @@ const Filter = () => {
   const [selectedRegion, setSelectedRegion] = useState("");
   const [selectedTownValue, setSelectedTownValue] = useState("");
 
-  // 🔹 Reset the filter states to the initial state
+  //🔹 Reset the filter states to the initial state
   useEffect(() => {
     // Reset town and market whenever the region changes
     setSelectedTownValue(""); // Reset the selected town when the region changes

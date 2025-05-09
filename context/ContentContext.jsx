@@ -1,289 +1,210 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, useCallback } from "react";
-import Cookies from "js-cookie";
+import { createContext, useContext, useState, useEffect } from "react";
 
-const host = "https://refreshapi.onrender.com";
 const ContentContext = createContext();
 
-// Cache for API responses
-const cache = {
-  markets: null,
-  products: {},
-  marketDetails: {},
-};
+// const cache = {
+//   markets: null,
+//   products: {},
+//   marketDetails: {},
+// };
 
 export function ContentProvider({ children }) {
   const [allMarkets, setAllMarkets] = useState([]);
-  const [selectedMarketId, setSelectedMarketId] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('selectedMarketId') || "";
-    }
-    return "";
-  });
+  const [selectedMarketId, setSelectedMarketId] = useState("");
   const [basket, setBasket] = useState([]);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Initialize basket from localStorage on mount
+  // 🔹 Инициализация на клиентски данни след mount
   useEffect(() => {
-    const savedBasket = localStorage.getItem('basket');
-    if (savedBasket) {
-      setBasket(JSON.parse(savedBasket));
-    }
+    const storedMarketId = localStorage.getItem("selectedMarketId");
+    const storedBasket = localStorage.getItem("basket");
+
+    if (storedMarketId) setSelectedMarketId(storedMarketId);
+    if (storedBasket) setBasket(JSON.parse(storedBasket));
+
     setIsInitialized(true);
   }, []);
 
-  // Update localStorage whenever basket changes
+  // 🔄 Съхранение на промени
   useEffect(() => {
     if (isInitialized) {
-      localStorage.setItem('basket', JSON.stringify(basket));
+      localStorage.setItem("basket", JSON.stringify(basket));
     }
   }, [basket, isInitialized]);
 
-  // Update localStorage when selected market changes
   useEffect(() => {
     if (isInitialized && selectedMarketId) {
-      localStorage.setItem('selectedMarketId', selectedMarketId);
+      localStorage.setItem("selectedMarketId", selectedMarketId);
     }
   }, [selectedMarketId, isInitialized]);
 
-  // 🔹 Fetch Markets Initially with caching
-  const fetchMarkets = useCallback(async () => {
+  // 🔹 Fetch пазари (с кеширане)
+  const fetchMarkets = async () => {
     try {
-      // Return cached data if available
-      if (cache.markets) {
-        setAllMarkets(cache.markets);
-        return cache.markets;
-      }
-
-      const response = await fetch(`${host}/markets`);
+      const response = await fetch(`api/markets`);
       if (!response.ok) throw new Error(`Error ${response.status}`);
-      const result = await response.json();
-      
-      // Cache the result
-      cache.markets = result;
-      setAllMarkets(result);
-      return result;
+
+      const data = await response.json();
+
+      setAllMarkets(data);
+      return data;
     } catch (error) {
-      console.error("Fetch error:", error);
+      console.error("Fetch markets error:", error);
       throw error;
     }
-  }, []);
+  };
 
-  // 🔹 Compute Regions from allMarkets
+  // 🔹 Взимане на всички региони
   const allRegions = [...new Set(allMarkets.map((m) => m.region))];
 
-  // 🔹 Fetch Selected Market Details Only When Needed with caching
-  const getOneMarket = useCallback(async (id) => {
+  // 🔹 Взимане на конкретен пазар
+  const getOneMarket = async (id) => {
     try {
-      // Return cached data if available
-      if (cache.marketDetails[id]) {
-        return cache.marketDetails[id];
-      }
-
-      const response = await fetch(`${host}/markets/${id}`);
+      const response = await fetch(`api/markets/${id}`);
       if (!response.ok) throw new Error(`Error ${response.status}`);
+
       const data = await response.json();
-      
-      // Cache the result
-      cache.marketDetails[id] = data;
+
       return data;
     } catch (error) {
-      console.error("Fetch error:", error);
+      console.error("Get market error:", error);
       return null;
     }
-  }, []);
+  };
 
-  // 🔹 Fetch Products for Selected Market with caching
-  const getProducts = useCallback(async () => {
-    if (!selectedMarketId) return [];
+  // 🔹 Добавяне на продукти
+  const addProducts = async (products) => {
     try {
-      // Return cached data if available
-      if (cache.products[selectedMarketId]) {
-        return cache.products[selectedMarketId];
-      }
+      const response = await fetch(`api/markets/${selectedMarketId}/products`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(products),
+      });
+      console.log(response);
+      if (!response.ok) throw Error(`Error ${response.status}`);
 
-      const response = await fetch(
-        `${host}/markets/${selectedMarketId}/products`
-      );
-      if (!response.ok) throw new Error(`Error ${response.status}`);
       const data = await response.json();
-      
-      // Cache the result
-      cache.products[selectedMarketId] = data;
+      console.log(data);
+
+      return data;
+    } catch (err) {
+      console.error("Add products error:", err);
+      throw err;
+    }
+  };
+
+  // 🔹 Взимане на продукти
+  const getProducts = async () => {
+    if (!selectedMarketId) return [];
+
+    try {
+      const response = await fetch(`api/markets/${selectedMarketId}/products`);
+
+      if (!response.ok) throw new Error(`Error ${response.status}`);
+
+      const data = await response.json();
+
       return data;
     } catch (error) {
-      console.error("Fetch error:", error);
+      console.error("Get products error:", error);
       return [];
     }
-  }, [selectedMarketId]);
+  };
 
-  // 🔹 Update a Product
-  const updateProduct = useCallback(async (productId, updatedProduct) => {
-    if (!selectedMarketId) {
-      throw new Error("No market selected");
-    }
+  // 🔹 Актуализиране на продукт
+  const updateProduct = async (productId, updatedProduct) => {
     try {
       const response = await fetch(
-        `${host}/markets/${selectedMarketId}/products/${productId}`,
+        `api/markets/${selectedMarketId}/products/${productId}`,
         {
           method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(updatedProduct),
         }
       );
+
       if (!response.ok) throw new Error(`Error ${response.status}`);
       const data = await response.json();
-      
-      // Update cache
-      if (cache.products[selectedMarketId]) {
-        cache.products[selectedMarketId] = cache.products[selectedMarketId].map(p => 
-          p.id === productId ? data : p
-        );
-      }
+
       return data;
     } catch (error) {
-      console.error("Update error:", error);
+      console.error("Update product error:", error);
       throw error;
     }
-  }, [selectedMarketId]);
+  };
 
-  // 🔹 Delete a Product
-  const delProduct = useCallback(async (productId) => {
-    if (!selectedMarketId) {
-      throw new Error("No market selected");
-    }
+  // 🔹 Изтриване на продукт
+  const delProduct = async (productId) => {
     try {
       const response = await fetch(
-        `${host}/markets/${selectedMarketId}/products/${productId}`,
+        `api/markets/${selectedMarketId}/products/${productId}`,
         {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
         }
       );
+
       if (!response.ok) throw new Error(`Error ${response.status}`);
-      
-      // Update cache
-      if (cache.products[selectedMarketId]) {
-        cache.products[selectedMarketId] = cache.products[selectedMarketId].filter(
-          p => p.id !== productId
-        );
-      }
+
       return await response.json();
     } catch (error) {
-      console.error("Delete error:", error);
+      console.error("Delete product error:", error);
       throw error;
     }
-  }, [selectedMarketId]);
+  };
 
-  // 🛒 **Add Product to Basket & Reduce Quantity**
-  const addToBasket = useCallback((product) => {
+  // 🛒 Добавяне към кошницата
+  const addToBasket = (product) => {
     if (product.quantity <= 0) {
       alert("This product is out of stock!");
       return;
     }
 
-    setBasket((prevBasket) => {
-      const existingItem = prevBasket.find((item) => item.id === product.id);
-      if (existingItem) {
-        return prevBasket.map((item) =>
-          item.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        );
-      } else {
-        return [...prevBasket, { ...product, quantity: 1 }];
-      }
+    setBasket((prev) => {
+      const existing = prev.find((item) => item.id === product.id);
+      return existing
+        ? prev.map((item) =>
+            item.id === product.id
+              ? { ...item, quantity: item.quantity + 1 }
+              : item
+          )
+        : [...prev, { ...product, quantity: 1 }];
     });
+  };
 
-    // 🔹 Reduce the product quantity in stock
-    setAllMarkets((prevMarkets) =>
-      prevMarkets.map((market) =>
-        market.id === selectedMarketId
-          ? {
-              ...market,
-              products: market.products.map((p) =>
-                p.id === product.id ? { ...p, quantity: p.quantity - 1 } : p
-              ),
-            }
-          : market
-      )
-    );
-  }, [selectedMarketId]);
+  // 🛒 Премахване от кошницата
+  const removeFromBasket = (productId) => {
+    setBasket((prev) => prev.filter((item) => item.id !== productId));
+  };
 
-  // 🛒 **Remove Product from Basket & Restore Quantity**
-  const removeFromBasket = useCallback((productId) => {
-    setBasket((prevBasket) =>
-      prevBasket.filter((product) => product.id !== productId)
-    );
-
-    // 🔹 Restore product quantity in stock
-    setAllMarkets((prevMarkets) =>
-      prevMarkets.map((market) =>
-        market.id === selectedMarketId
-          ? {
-              ...market,
-              products: market.products.map((p) =>
-                p.id === productId ? { ...p, quantity: p.quantity + 1 } : p
-              ),
-            }
-          : market
-      )
-    );
-  }, [selectedMarketId]);
-
-  // 🛒 **Update Product Quantity in Basket**
-  const updateBasket = useCallback((productId, newQuantity) => {
+  // 🛒 Актуализиране на количество
+  const updateBasket = (productId, newQuantity) => {
     if (newQuantity <= 0) {
       removeFromBasket(productId);
       return;
     }
 
-    setBasket((prevBasket) => {
-      const existingItem = prevBasket.find((item) => item.id === productId);
-      if (!existingItem) return prevBasket;
-
-      const quantityDiff = newQuantity - existingItem.quantity;
-      
-      // Update basket
-      const updatedBasket = prevBasket.map((item) =>
+    setBasket((prev) =>
+      prev.map((item) =>
         item.id === productId ? { ...item, quantity: newQuantity } : item
-      );
+      )
+    );
+  };
 
-      // Update stock quantity
-      setAllMarkets((prevMarkets) =>
-        prevMarkets.map((market) =>
-          market.id === selectedMarketId
-            ? {
-                ...market,
-                products: market.products.map((p) =>
-                  p.id === productId
-                    ? { ...p, quantity: p.quantity - quantityDiff }
-                    : p
-                ),
-              }
-            : market
-        )
-      );
-
-      return updatedBasket;
-    });
-  }, [removeFromBasket, selectedMarketId]);
-
-  // Add clearCart function
-  const clearCart = useCallback(() => {
+  // 🛒 Изчистване на кошницата
+  const clearCart = () => {
     setBasket([]);
     if (isInitialized) {
-      localStorage.removeItem('basket');
+      localStorage.removeItem("basket");
     }
-  }, [isInitialized]);
-  
+  };
 
   return (
     <ContentContext.Provider
       value={{
+        addProducts,
         allMarkets,
         allRegions,
         selectedMarketId,
@@ -298,7 +219,7 @@ export function ContentProvider({ children }) {
         removeFromBasket,
         updateBasket,
         clearCart,
-        sendOrderEmail,
+        getProducts,
       }}
     >
       {children}

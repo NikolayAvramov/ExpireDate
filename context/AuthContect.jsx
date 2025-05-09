@@ -1,184 +1,140 @@
 "use client";
-import { createContext, useContext, useState } from "react";
+
+import { createContext, useContext, useState, useEffect } from "react";
 import Cookies from "js-cookie";
 import { useContent } from "./ContentContext";
 
-const host = "https://refreshapi.onrender.com";
-
 const AuthContext = createContext();
+
+const COOKIE_USER = "user";
+const COOKIE_MARKET = "market";
+
+function getUserFromCookie() {
+  const cookie = Cookies.get(COOKIE_USER);
+  if (!cookie) return null;
+
+  try {
+    return JSON.parse(cookie);
+  } catch {
+    Cookies.remove(COOKIE_USER);
+    return null;
+  }
+}
+
+function getMarketFromCookie() {
+  const cookie = Cookies.get(COOKIE_MARKET);
+  if (!cookie) return null;
+
+  try {
+    return JSON.parse(cookie);
+  } catch {
+    Cookies.remove(COOKIE_MARKET);
+    return null;
+  }
+}
 
 export function AuthProvider({ children }) {
   const { setSelectedMarketId } = useContent();
   const [userType, setUserType] = useState("");
-
   const [authStatus, setAuthStatus] = useState({
     authenticated: false,
     type: null,
   });
 
-  // Register user function
-  async function onRegister(data) {
-    try {   
-      const response = await fetch(host + "/users", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
-      });
+  // 🧠 Initial auth check from cookies
+  useEffect(() => {
+    const user = getUserFromCookie();
+    const market = getMarketFromCookie();
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to register user");
-      }
-
-      const user = await response.json();
-
-      // Store the JWT token in cookies
-      Cookies.set(
-        "user",
-        JSON.stringify({
-          id: user.newUser.id,
-          token: user.token,
-        }),
-        { secure: true, sameSite: "None" }
-      );
-
-      setAuthStatus({
-        authenticated: true,
-        type: "user",
-      });
-
-      return user;
-    } catch (error) {
-      throw new Error(
-        error.message || "An unexpected error occurred. Please try again."
-      );
+    if (user?.token) {
+      setAuthStatus({ authenticated: true, type: "user" });
+    } else if (market?.id) {
+      setAuthStatus({ authenticated: true, type: "market" });
+      setSelectedMarketId(market.id);
     }
-  }
+  }, [setSelectedMarketId]);
 
-  // Login user function
-  async function onLogin(data) {
+  const onRegister = async (data) => {
     try {
-      const response = await fetch(host + "/users/login", {
+      const res = await fetch("/api/users/register", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-      const responseData = await response.json();
 
-      if (!response.ok) {
-        throw new Error(responseData.message || "Failed to login user");
-      }
-
-      // Store the JWT token in cookies
-      Cookies.set(
-        "user",
-        JSON.stringify({
-          id: responseData.userId || responseData.id,
-          token: responseData.token,
-        }),
-        { secure: true, sameSite: "None" }
-      );
-
-      setAuthStatus({
-        authenticated: true,
-        type: "user",
-      });
-
-      return responseData;
-    } catch (error) {
-      throw new Error(
-        error.message || "An unexpected error occurred. Please try again."
-      );
-    }
-  }
-
-  // Market login function
-  async function onMarketLogin(data) {
-    const { marketCode, password } = data;
-
-    const response = await fetch(`${host}/markets/${marketCode}`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      console.error("Market login failed");
-      return;
-    }
-
-    const marketData = await response.json();
-    console.log(marketData);
-    if (marketData.password === password) {
-      setSelectedMarketId(marketData.id);
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.message || "Registration failed");
 
       Cookies.set(
-        "market",
-        JSON.stringify({
-          id: marketData.id,
-        }),
-        { secure: true, sameSite: "None" }
+        COOKIE_USER,
+        JSON.stringify({ id: result.newUser.id, token: result.token }),
+        {
+          secure: true,
+          sameSite: "None",
+        }
       );
 
-      setAuthStatus({
-        authenticated: true,
-        type: "market",
-      });
-    } else {
-      console.error("Invalid market credentials");
+      setAuthStatus({ authenticated: true, type: "user" });
+      return result;
+    } catch (err) {
+      throw new Error(err.message || "Registration error");
     }
-  }
+  };
 
-  // Logout function
-  function onLogout() {
-    Cookies.remove("user");
-    Cookies.remove("market");
+  const onLogin = async (data) => {
+    try {
+      const res = await fetch("/api/users/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.message || "Login failed");
+
+      Cookies.set(
+        COOKIE_USER,
+        JSON.stringify({ id: result.userId || result.id, token: result.token }),
+        {
+          secure: true,
+          sameSite: "None",
+        }
+      );
+
+      setAuthStatus({ authenticated: true, type: "user" });
+      return result;
+    } catch (err) {
+      throw new Error(err.message || "Login error");
+    }
+  };
+
+  const onMarketLogin = async ({ marketCode, password }) => {
+    try {
+      const res = await fetch(`api/markets/${marketCode}`);
+      if (!res.ok) throw new Error("Invalid market code");
+      const market = await res.json();
+      if (market.password !== password)
+        throw new Error("Invalid market credentials");
+
+      Cookies.set(COOKIE_MARKET, JSON.stringify({ id: market.id }), {
+        secure: true,
+        sameSite: "None",
+      });
+
+      setSelectedMarketId(market.id);
+      setAuthStatus({ authenticated: true, type: "market" });
+    } catch (err) {
+      console.error("Market login failed:", err.message);
+      throw err;
+    }
+  };
+
+  const onLogout = () => {
+    Cookies.remove(COOKIE_USER);
+    Cookies.remove(COOKIE_MARKET);
     setSelectedMarketId("");
-
-    setAuthStatus({
-      authenticated: false,
-      type: null,
-    });
-  }
-
-  // Check if the user is authenticated
-  function isAuthenticated() {
-    const userCookie = Cookies.get("user");
-    const marketCookie = Cookies.get("market");
-
-    try {
-      if (userCookie) {
-        const user = JSON.parse(userCookie);
-        if (!user) {
-          Cookies.remove("user");
-          return { authenticated: false, type: null };
-        }
-        return { authenticated: !!user.token, type: "user" };
-      }
-      if (marketCookie) {
-        const market = JSON.parse(marketCookie);
-        if (!market || !market.id) {
-          console.error('Invalid market cookie data:', market);
-          // Clear invalid cookie
-          Cookies.remove("market");
-          return { authenticated: false, type: null };
-        }
-        return { authenticated: !!market.id, type: "market" };
-      }
-    } catch (error) {
-      console.error("Error parsing authentication cookies:", error);
-      // Clear invalid cookies
-      Cookies.remove("user");
-      Cookies.remove("market");
-    }
-
-    return { authenticated: false, type: null };
-  }
+    setAuthStatus({ authenticated: false, type: null });
+  };
 
   return (
     <AuthContext.Provider
@@ -189,7 +145,6 @@ export function AuthProvider({ children }) {
         onMarketLogin,
         userType,
         setUserType,
-        isAuthenticated,
         authStatus,
         setAuthStatus,
       }}
